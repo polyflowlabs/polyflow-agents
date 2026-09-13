@@ -7,6 +7,9 @@ name: Release to stores
 #
 # The only GitHub secret this needs is EXPO_TOKEN. The App Store Connect API key
 # and the Google Play service account live on EAS — see CONTRIBUTING.md.
+#
+# The Android binary is also attached to the workflow run as an artifact, so a
+# release can be sideloaded or archived without going through the EAS dashboard.
 
 on:
   push:
@@ -99,9 +102,46 @@ jobs:
             exit 1
           fi
           echo "id=$build_id" >> "$GITHUB_OUTPUT"
+          echo "url=$(jq -r '.[0].artifacts.applicationArchiveUrl // .[0].artifacts.buildUrl // empty' build.json)" >> "$GITHUB_OUTPUT"
           echo "- \`$MATRIX_PLATFORM\`: built \`$build_id\`" >> "$GITHUB_STEP_SUMMARY"
         env:
           MATRIX_PLATFORM: ${{ matrix.platform }}
+
+      # EAS keeps the binary for a limited time; the workflow run keeps its own
+      # copy. Only Android — the iOS .ipa is useless outside App Store Connect.
+      - name: Download Android binary
+        id: binary
+        if: matrix.platform == 'android'
+        run: |
+          set -euo pipefail
+          if [ -z "$BUILD_URL" ]; then
+            echo "eas build output carried no artifact url" >&2
+            cat build.json >&2
+            exit 1
+          fi
+          path="${BUILD_URL%%\?*}"
+          ext="${path##*.}"
+          case "$ext" in
+            aab|apk) ;;
+            *) ext="aab" ;;
+          esac
+          # Artifact names cannot contain slashes (branch names can, on dispatch).
+          ref="${GITHUB_REF_NAME//\//-}"
+          mkdir -p artifact
+          curl --fail --silent --show-error --location --retry 3 \
+            --output "artifact/hermes-agent-${ref}-android.${ext}" \
+            "$BUILD_URL"
+          ls -l artifact
+          echo "name=android-${ref}" >> "$GITHUB_OUTPUT"
+        env:
+          BUILD_URL: ${{ steps.build.outputs.url }}
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: matrix.platform == 'android'
+        with:
+          name: ${{ steps.binary.outputs.name }}
+          path: artifact/
+          if-no-files-found: error
 
       - name: Submit to store
         if: inputs.submit != false

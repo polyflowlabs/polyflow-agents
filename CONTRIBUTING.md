@@ -34,7 +34,9 @@ Three workflows, in ascending order of trust:
 `eas-deploy.yml` publishes an OTA update to a channel and only runs a native
 build when the platform's Expo fingerprint has no finished build on that channel
 yet. `release.yml` builds production binaries and submits them to App Store
-Connect and Google Play.
+Connect and Google Play; the Android bundle is also attached to the workflow run
+as an artifact (`android-<tag>`), so it can be sideloaded or archived without
+the EAS dashboard.
 
 ### Credentials
 
