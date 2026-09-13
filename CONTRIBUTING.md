@@ -34,9 +34,12 @@ Three workflows, in ascending order of trust:
 `eas-deploy.yml` publishes an OTA update to a channel and only runs a native
 build when the platform's Expo fingerprint has no finished build on that channel
 yet. `release.yml` builds production binaries and submits them to App Store
-Connect and Google Play; the Android bundle is also attached to the workflow run
-as an artifact (`android-<tag>`) and, on a tag push, to a GitHub Release for
-that tag, so it can be sideloaded or archived without the EAS dashboard.
+Connect and Google Play. The Android job also builds a universal APK with the
+`production-apk` profile (same keystore and `versionCode` as the bundle);
+both files are attached to the workflow run as an artifact (`android-<tag>`)
+and, on a tag push, to a GitHub Release for that tag under fixed names, so
+`releases/latest/download/polyflow-agents-android.apk` is a permanent link to
+the newest sideloadable build — the one the website's Android button uses.
 
 To cut a release: bump `version` in `app.json` and `package.json` on `main`,
 then push a matching tag (`git tag v0.1.0 && git push origin v0.1.0`) and
