@@ -35,8 +35,13 @@ Three workflows, in ascending order of trust:
 build when the platform's Expo fingerprint has no finished build on that channel
 yet. `release.yml` builds production binaries and submits them to App Store
 Connect and Google Play; the Android bundle is also attached to the workflow run
-as an artifact (`android-<tag>`), so it can be sideloaded or archived without
-the EAS dashboard.
+as an artifact (`android-<tag>`) and, on a tag push, to a GitHub Release for
+that tag, so it can be sideloaded or archived without the EAS dashboard.
+
+To cut a release: bump `version` in `app.json` and `package.json` on `main`,
+then push a matching tag (`git tag v0.1.0 && git push origin v0.1.0`) and
+approve the `production` deployment when the run pauses for review. Build
+numbers are managed by EAS (`autoIncrement`), not the tag.
 
 ### Credentials
 

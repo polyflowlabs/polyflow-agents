@@ -8,8 +8,9 @@ name: Release to stores
 # The only GitHub secret this needs is EXPO_TOKEN. The App Store Connect API key
 # and the Google Play service account live on EAS — see CONTRIBUTING.md.
 #
-# The Android binary is also attached to the workflow run as an artifact, so a
-# release can be sideloaded or archived without going through the EAS dashboard.
+# The Android binary is also attached to the workflow run as an artifact, and on
+# a tag push to a GitHub Release for that tag, so a release can be sideloaded or
+# archived without going through the EAS dashboard.
 
 on:
   push:
@@ -61,6 +62,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     environment: production
+    # `write` only so the Android leg can create the GitHub Release and upload
+    # the binary to it; the job is already gated by the environment reviewer.
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -142,6 +147,26 @@ jobs:
           name: ${{ steps.binary.outputs.name }}
           path: artifact/
           if-no-files-found: error
+
+      # Before the store submission so a Play Console hiccup cannot leave a tag
+      # without its binary. Idempotent: a re-run reuses the release and
+      # overwrites the asset.
+      - name: Publish GitHub Release
+        if: matrix.platform == 'android' && github.ref_type == 'tag'
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$TAG" \
+              --generate-notes \
+              --verify-tag
+          fi
+          gh release upload "$TAG" artifact/* --repo "$GITHUB_REPOSITORY" --clobber
+          echo "- \`android\`: attached to release [$TAG](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${TAG})" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          TAG: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
 
       - name: Submit to store
         if: inputs.submit != false
