@@ -112,34 +112,57 @@ jobs:
         env:
           MATRIX_PLATFORM: ${{ matrix.platform }}
 
-      # EAS keeps the binary for a limited time; the workflow run keeps its own
+      # Play wants an App Bundle, but a phone cannot install one, so the release
+      # also carries a universal APK signed with the same keystore. Built after
+      # the bundle, with autoIncrement off, so both share one versionCode and a
+      # sideloaded install can later be upgraded from Play.
+      - name: Build APK
+        id: apk
+        if: matrix.platform == 'android'
+        run: |
+          set -euo pipefail
+          eas build \
+            --platform android \
+            --profile production-apk \
+            --message "${GITHUB_REF_NAME} (${GITHUB_SHA::7}) apk" \
+            --non-interactive \
+            --wait \
+            --json > apk.json
+          apk_id="$(jq -r '.[0].id' apk.json)"
+          if [ -z "$apk_id" ] || [ "$apk_id" = "null" ]; then
+            echo "could not read a build id from eas build output" >&2
+            cat apk.json >&2
+            exit 1
+          fi
+          echo "url=$(jq -r '.[0].artifacts.applicationArchiveUrl // .[0].artifacts.buildUrl // empty' apk.json)" >> "$GITHUB_OUTPUT"
+          echo "- \`android\`: built apk \`$apk_id\`" >> "$GITHUB_STEP_SUMMARY"
+
+      # EAS keeps the binaries for a limited time; the workflow run keeps its own
       # copy. Only Android — the iOS .ipa is useless outside App Store Connect.
-      - name: Download Android binary
+      - name: Download Android binaries
         id: binary
         if: matrix.platform == 'android'
         run: |
           set -euo pipefail
-          if [ -z "$BUILD_URL" ]; then
-            echo "eas build output carried no artifact url" >&2
-            cat build.json >&2
-            exit 1
-          fi
-          path="${BUILD_URL%%\?*}"
-          ext="${path##*.}"
-          case "$ext" in
-            aab|apk) ;;
-            *) ext="aab" ;;
-          esac
           # Artifact names cannot contain slashes (branch names can, on dispatch).
           ref="${GITHUB_REF_NAME//\//-}"
           mkdir -p artifact
-          curl --fail --silent --show-error --location --retry 3 \
-            --output "artifact/hermes-agent-${ref}-android.${ext}" \
-            "$BUILD_URL"
+          for pair in "aab=$AAB_URL" "apk=$APK_URL"; do
+            ext="${pair%%=*}"
+            url="${pair#*=}"
+            if [ -z "$url" ]; then
+              echo "eas build output carried no artifact url for the $ext" >&2
+              exit 1
+            fi
+            curl --fail --silent --show-error --location --retry 3 \
+              --output "artifact/polyflow-agents-${ref}-android.${ext}" \
+              "$url"
+          done
           ls -l artifact
           echo "name=android-${ref}" >> "$GITHUB_OUTPUT"
         env:
-          BUILD_URL: ${{ steps.build.outputs.url }}
+          AAB_URL: ${{ steps.build.outputs.url }}
+          APK_URL: ${{ steps.apk.outputs.url }}
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: matrix.platform == 'android'
@@ -149,12 +172,18 @@ jobs:
           if-no-files-found: error
 
       # Before the store submission so a Play Console hiccup cannot leave a tag
-      # without its binary. Idempotent: a re-run reuses the release and
-      # overwrites the asset.
+      # without its binaries. The assets carry no version in their names so
+      # `releases/latest/download/polyflow-agents-android.apk` is a permanent
+      # link to the newest build. Idempotent: a re-run reuses the release and
+      # overwrites the assets.
       - name: Publish GitHub Release
         if: matrix.platform == 'android' && github.ref_type == 'tag'
         run: |
           set -euo pipefail
+          mkdir -p release
+          for f in artifact/*; do
+            cp "$f" "release/polyflow-agents-android.${f##*.}"
+          done
           if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release create "$TAG" \
               --repo "$GITHUB_REPOSITORY" \
@@ -162,7 +191,7 @@ jobs:
               --generate-notes \
               --verify-tag
           fi
-          gh release upload "$TAG" artifact/* --repo "$GITHUB_REPOSITORY" --clobber
+          gh release upload "$TAG" release/* --repo "$GITHUB_REPOSITORY" --clobber
           echo "- \`android\`: attached to release [$TAG](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${TAG})" >> "$GITHUB_STEP_SUMMARY"
         env:
           TAG: ${{ github.ref_name }}
