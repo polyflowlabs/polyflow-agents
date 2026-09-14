@@ -27,7 +27,8 @@ being asked.
 ## Install
 
 ```bash
-uv tool install polyflow-agents-push
+# Not on PyPI yet, so install from the repo; the package lives under host/
+uv tool install "polyflow-agents-push @ git+https://github.com/polyflowlabs/polyflow-agents#subdirectory=host"
 polyflow_agents_push install --copy --enable
 ```
 

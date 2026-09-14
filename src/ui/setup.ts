@@ -50,7 +50,8 @@ export function parseHost(input: string): ParsedHost {
 
 /** The command the host plugin README gives, in the order it gives them. */
 export const PLUGIN_INSTALL_STEPS = [
-  'uv tool install polyflow-agents-push',
+  // Not on PyPI yet: install from the repo, where the package is under host/.
+  'uv tool install "polyflow-agents-push @ git+https://github.com/polyflowlabs/polyflow-agents#subdirectory=host"',
   'polyflow_agents_push install --copy --enable'
 ] as const
 
