@@ -3,7 +3,7 @@
 #
 # This is the *development* path. What other people use is pip:
 #
-#   uv tool install polyflow-agents-push
+#   uv tool install "polyflow-agents-push @ git+https://github.com/polyflowlabs/polyflow-agents#subdirectory=host"
 #   polyflow_agents_push install --copy --enable
 #
 # Both end at the same place — a `polyflow_agents_push` directory under

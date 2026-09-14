@@ -53,7 +53,8 @@ until a notification silently stops arriving.
 On the agent host:
 
 ```bash
-uv tool install polyflow-agents-push      # pip works too, wherever pip exists
+# Not on PyPI yet, so install from this repo (pip works too, wherever pip exists)
+uv tool install "polyflow-agents-push @ git+https://github.com/polyflowlabs/polyflow-agents#subdirectory=host"
 polyflow_agents_push install --copy --enable
 ```
 
