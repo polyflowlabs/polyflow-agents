@@ -39,9 +39,9 @@ cron delivery, the messaging gateway.
 its own venv with `uv` and uv does not install pip into it, so
 `.../venv/bin/pip` does not exist; a modern system Python is likely
 PEP 668-managed on top of that. uv ships with Hermes (`~/.hermes/bin/uv`), so it
-is the installer that is definitely present. Plain `pip install
-polyflow-agents-push` works anywhere pip does — nothing here needs uv
-specifically.
+is the installer that is definitely present. Plain `pip install "polyflow-agents-push
+@ git+https://github.com/polyflowlabs/polyflow-agents#subdirectory=host"` works
+anywhere pip does — nothing here needs uv specifically.
 
 `uv tool install` is the right verb rather than `uv pip install --python <the
 Hermes venv>`: this package exists to provide a command, and nothing about the
