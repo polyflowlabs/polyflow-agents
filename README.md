@@ -26,6 +26,35 @@ something to run before any host prep exists. The mock streams tokens, opens a
 tool card, raises a blocking approval and settles — the whole Chat path without
 a server.
 
+### Making the host reachable from a phone
+
+`hermes serve` binds to `127.0.0.1` by default, so a phone on the same Wi-Fi
+sees nothing. It needs `--host`, and — since the June 2026 hardening — a
+non-loopback bind refuses to start until an auth provider is configured. There
+is no unauthenticated public option, so set a password first:
+
+```bash
+cd ~/.hermes/hermes-agent
+venv/bin/python -c "from plugins.dashboard_auth.basic import hash_password; print(hash_password('your-password'))"
+```
+
+```yaml
+# ~/.hermes/config.yaml
+dashboard:
+  basic_auth:
+    username: you
+    password_hash: <the hash printed above>
+```
+
+```bash
+hermes serve --host 0.0.0.0     # or your LAN / Tailscale IP, to bind just that
+```
+
+`lsof -nP -iTCP:9119 -sTCP:LISTEN` should now show `*:9119` rather than
+`127.0.0.1:9119`. Binding to a Tailscale IP keeps the server off the LAN
+entirely, which is the safer default when the phone is on the tailnet anyway.
+That username and password are what the app's connect form asks for.
+
 To point it at a real agent, use **Connect a server** in the switcher popover:
 host, port, and whatever credential the host says it wants — the form probes
 `/api/status` and `/api/auth/providers` rather than assuming a bearer token.
